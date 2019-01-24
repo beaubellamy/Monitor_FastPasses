@@ -7,7 +7,7 @@ chromdriver = "C:\\Users\\bbel1\\AppData\\Local\\Continuum\\anaconda3\\Lib\\site
 driver = webdriver.Chrome(chromdriver)
 
 user = "YOUR-USERNAME"
-pwd = "YOU-PASSWORD"
+pwd = "YOUR-PASSWORD"
 guests = ["guest-CAFEF00D-6502-0000-0000-000303002409-unselected",
           "guest-CAFEF00D-6502-0000-0000-000303002525-unselected",
           "guest-CAFEF00D-6502-0000-0000-000303002476-unselected"]
