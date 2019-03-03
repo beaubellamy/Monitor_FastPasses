@@ -1,3 +1,80 @@
+def displayFastPassTimes(fastPassDictionary):
+
+    for key in fastPassDictionary.keys():
+        # Convert the time back to clock time
+        timeMinutes = fastPassDictionary[key]
+        hour = int(timeMinutes/60)
+        minute = int(((timeMinutes/60.0)-hour)*60.0)
+
+        time = str(hour % 12)+":"+str(minute)
+
+        if hour < 12:
+            time += " AM"
+        else:
+            time += " PM"
+
+        print (key,": ",time)
+                            
+
+def getTimeElements(driver):
+    timeFilter = driver.find_element_by_css_selector(".timeFilterOptionBox.ng-scope")
+    return timeFilter.find_elements_by_class_name("ng-scope")
+
+
+def removeRideFromList(ride='', fastPassList=[]):
+    """
+    Removes the ride from the fast pass list when we have selected a time.
+    """
+
+    idx = [i for i, s in enumerate(fastPassList) if s in ride]
+    del fastPassList[idx[0]]
+    return fastPassList
+
+def convertTime(timeString=''):
+    if timeString == '':
+        return 0
+    else:
+        timeItems = timeString.split(' ')
+        time = timeItems[0].split(':')
+        hour = int(time[0])
+        minute = int(time[1])
+
+        if (timeItems[1] == 'PM'):
+            hour += 12
+
+        return (hour * 60) + minute
+
+def checktimes(availableTimes = [], fastPassTimes = []):
+    
+    if not availableTimes or not fastPassTimes:
+        return 0, 0
+    
+    for idx, time in enumerate(availableTimes):
+        keepThis = True
+        t = int(convertTime(time.text))
+
+        # find a time (t) that is atleast 1 hour difference between all time in the fast pass list
+        for fptime in fastPassTimes.values():
+            if not abs(fptime - t) > 60:
+                keepThis = False
+                
+                break # to the next time (t)
+
+        # time (t) has an hour between times in fast pass list
+        if keepThis:
+            break
+
+        if not keepThis and idx == len(availableTimes)-1:
+            print ('The selected fast pass time may conflict with an existing fast pass')
+            return -1, 0
+
+
+    return idx, t
+
+
+
+
+from sys import exit
 from time import sleep
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
@@ -15,11 +92,11 @@ month = "March"
 dates = ["5"]
 parks = {"4": "Epcot", "5": "Hollywood Studios", "2": "Magic Kingdom", "3": "Animal Kingdom"}
 EpcotFastPasses = []
-HollywoodFastPasses = ["Fantasmic","Star Tours","Toy Story"]
+HollywoodFastPasses = ["Indiana Jones","Star Tours","Tower of Terror"]
 MagicFastPasses = []
 AnimalFastPasses = []
 selectedFastPasses = {"4": {}, "5": {}, "2": {}, "3": {}}
-
+continuallyWatch = []
 
 
 driver.get("https://disneyworld.disney.go.com/login/")
@@ -60,7 +137,7 @@ for date in dates:
         if (elem[i].text == date):
             day = i
 
-    day = 16
+    
 
     elem[day].click()
 
@@ -91,59 +168,104 @@ for date in dates:
         pass
         # On the fast pass page
 
+    fastPasses_Later = []
 
     # Fast Pass page
-    while len(selectedFastPasses[date]) < 4:
+    while len(selectedFastPasses[date]) < 4 and len(HollywoodFastPasses) > 0:
     
         
         # Select the filter by time
-        timeFilter = driver.find_element_by_css_selector(".timeFilterOptionBox.ng-scope")
-        elements = timeFilter.find_elements_by_class_name("ng-scope")
+        elements = getTimeElements(driver)
 
-        # click on the desired filter ??????
-        for elem in elements:
-            if elem.text == "Afternoon":
-                elem.click()
-                break
-
-        sleep(5)
-        # Check if the desired ride has an available fast pass.
-        experiences = driver.find_elements_by_class_name("experienceNameLand")
-        experienceTimes = driver.find_elements_by_class_name("available-times-container")
-
-        #Figure out which park we need to use the fast pass list from
-        # HollywoodFastPasses
-
-        for idx, experience in enumerate(experiences):
-            ride = experience.text.split("\n")[0]
-
-            # Check if the ride is in the fast pass list.
-            if any(substring in ride for substring in HollywoodFastPasses):
-                availableTimes = experienceTimes[idx].find_elements_by_css_selector(".availableTime.ng-scope")
+        # select each time filter
+        for filterIdx in range(len(elements)):
+            if elements[filterIdx].text == "Morning" or "Afternoon" or "Evening":
+                elements[filterIdx].click()
                 
-                # Remove the ride from the fast pass list, so we dont find it the next time round.
-                idx = [i for i, s in enumerate(HollywoodFastPasses) if s in ride]
-                del HollywoodFastPasses[idx[0]]
 
-                if availableTimes:
-                    if not selectedFastPasses[date]:
-                        selectedFastPasses[date] = {ride: availableTimes[0].text} # Add the first time value
-                        # select the time to add to the fast pass list
-                        availableTimes[0].click()
+            sleep(5)
+            # Check if the desired ride has an available fast pass.
+            experiences = driver.find_elements_by_class_name("experienceNameLand")
+            experienceTimes = driver.find_elements_by_class_name("available-times-container")
+
+            # Figure out which park we need to use the fast pass list from
+            # TODO: generalise the checking of the fast pass list 
+            # HollywoodFastPasses
+
+            for idx in range(len(experiences)):
+                ride = experiences[idx].text.split("\n")[0]
+
+                # Check if the ride is in the fast pass list.
+                if any(substring in ride for substring in HollywoodFastPasses):
+                    availableTimes = experienceTimes[idx].find_elements_by_css_selector(".availableTime.ng-scope")
+                
+                    
+                    if availableTimes:
+                        if not selectedFastPasses[date]:
+                            time = convertTime(availableTimes[0].text)
+                            selectedFastPasses[date][ride] = time # Add the first time value
+                            # select the time to add to the fast pass list
+                            availableTimes[0].click()
+                            HollywoodFastPasses = removeRideFromList(ride,HollywoodFastPasses)
+
+                        else:
+                            # check each time has a minimum gap between existing fast pass times
+                            print ("Add additional fast passes")
+                            idxT, time = checktimes(availableTimes, selectedFastPasses[date])
+                            if idx >= 0:
+                                selectedFastPasses[date][ride] = time
+                                availableTimes[idxT].click()
+                                HollywoodFastPasses = removeRideFromList(ride,HollywoodFastPasses)
+                            else:
+                                # Need to try to find alternative time for these ride
+                                fastPasses_Later.append(ride)
+
+                        # Confirm selection
+                        sleep(5)
+                        try:
+                            driver.find_element_by_css_selector(".ng-scope.button.confirm.tertiary").click()
+                        except seleniumException.NoSuchElementException as exception:
+                            print ("There is a conflict that, currently, can not be resolved by the program.")
+                            print ("Manual intervention is required to complete the fast pass process.")
+                            exit("There was a Fast Pass conflict")
+                            # Need to wait for the user to continue the program
+                            # press: Continue with Guest
+                            # press: Next
+                            # press: confirm - to replace the conflicted fast pass with the current selection
+
+
+                        # Contnue with another Fast pass on the same day
+                        sleep(5)
+                        if len(selectedFastPasses[date]) < 3:
+                            driver.find_element_by_css_selector(".icon.calendarDay.ng-scope").click()
+                            # Continue with current guest list
+                            sleep(5)
+                            driver.find_element_by_xpath("""//*[@id="selectPartyPage"]/div[3]/div/div[2]/div""").click()
+                        
+                        else:
+                            # click "No Thanks, Im done"
+                            driver.find_element_by_css_selector(".ng-scope.button.next.primary").click()
+                            
+                            displayFastPassTimes(selectedFastPasses[date])
+                            # All fast passes have been selected.
+                            exit(0)
+                    
+
+                        sleep(5)
+                    
+
+                        #break
 
                     else:
-                        # check each time has a minimum gap between existing fast pass times
-                        print ("Add additional fast passes")
-                        continue
+                        print ('Fast passes are not available for ',ride)
+                        HollywoodFastPasses = removeRideFromList(ride,HollywoodFastPasses)
+                        continuallyWatch.append(ride)
 
-                    # Confirm selection
-                    driver.find_element_by_css_selector(".ng-scope.button.confirm.tertiary").click()
-                    # Contnue with another Fast pass on the same day
-                    driver.find_element_by_css_selector(".icon.calendarDay.ng-scope").click()
-                    # Continue with current guest list
-                    driver.find_element_by_xpath("""//*[@id="selectPartyPage"]/div[3]/div/div[2]/div""").click()
-    
-                    break
+                experiences = driver.find_elements_by_class_name("experienceNameLand")
+                experienceTimes = driver.find_elements_by_class_name("available-times-container")
+
+            # re-state the time filters
+            elements = getTimeElements(driver)
 
         
         # if yes, get earliest time with atleast 1 hour inbetween fast passes.
