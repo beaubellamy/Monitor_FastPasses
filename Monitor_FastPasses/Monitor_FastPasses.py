@@ -92,7 +92,7 @@ month = "March"
 dates = ["5"]
 parks = {"4": "Epcot", "5": "Hollywood Studios", "2": "Magic Kingdom", "3": "Animal Kingdom"}
 EpcotFastPasses = []
-HollywoodFastPasses = ["Indiana Jones","Star Tours","Tower of Terror"]
+HollywoodFastPasses = ["Disney Junior Dance","Star Tours","Little Mermaid"]
 MagicFastPasses = []
 AnimalFastPasses = []
 selectedFastPasses = {"4": {}, "5": {}, "2": {}, "3": {}}
@@ -229,9 +229,8 @@ for date in dates:
                             print ("Manual intervention is required to complete the fast pass process.")
                             exit("There was a Fast Pass conflict")
                             # Need to wait for the user to continue the program
-                            # press: Continue with Guest
-                            # press: Next
-                            # press: confirm - to replace the conflicted fast pass with the current selection
+                            # press: Back
+                            # Add ride to the next time filter.
 
 
                         # Contnue with another Fast pass on the same day
